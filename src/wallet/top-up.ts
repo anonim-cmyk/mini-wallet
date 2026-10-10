@@ -56,6 +56,6 @@ export async function topUp(
     console.error("TopUp failed, transaction rolled back: ", error);
     throw error;
   } finally {
-    await client.release();
+    client.release();
   }
 }
