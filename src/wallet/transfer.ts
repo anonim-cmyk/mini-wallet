@@ -66,7 +66,12 @@ export async function transfer(
       throw new Error("Transfer hanya antar akun user");
     }
 
-    const sender = accountRes.rows.find((r) => r.id === String(fromAccountId));
+    const sender = accountRes.rows.find((r) => Number(r.id) === fromAccountId);
+    const receiver = accountRes.rows.find((r) => Number(r.id) === toAccountId);
+
+    if (!sender || !receiver) {
+      throw new Error("Salah satu akun tidak ditemukan");
+    }
 
     if (Number(sender.balance) < amount) {
       throw new Error("Saldo tidak cukup");
