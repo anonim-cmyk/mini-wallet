@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { pool } from "./db";
 import { transfer } from "./wallet/transfer";
 
@@ -17,6 +18,7 @@ async function main() {
     Number(sender.account_id),
     Number(receiver.account_id),
     300,
+    randomUUID(),
     sender.user_id,
   );
   console.log("hasil: ", result);
