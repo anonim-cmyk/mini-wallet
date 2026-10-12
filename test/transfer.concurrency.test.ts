@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { pool } from "../src/db";
 import { transfer } from "../src/wallet/transfer";
 import { resetDb, createUserWithAccount } from "./helpers";
+import { randomUUID } from "node:crypto";
 
 beforeEach(async () => {
   await resetDb();
@@ -18,7 +19,13 @@ describe("transfer konkuren", () => {
 
     const results = await Promise.allSettled(
       Array.from({ length: 100 }, () =>
-        transfer(sender.accountId, receiver.accountId, 100, sender.userId),
+        transfer(
+          sender.accountId,
+          receiver.accountId,
+          100,
+          randomUUID(),
+          sender.userId,
+        ),
       ),
     );
 
