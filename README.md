@@ -60,6 +60,23 @@ dimatikan (merah), supaya terbukti test itu benar-benar menjaga sesuatu.
 Dengan kode asli: 100 transfer paralel @100 dari saldo 1000 menghasilkan tepat 10 sukses
 dan 90 "Saldo tidak cukup"; 20 request berkey sama menghasilkan satu pemotongan saldo.
 
+## Performa riwayat: keyset vs OFFSET
+
+Diuji pada 500.006 entri ledger untuk satu akun, mengambil 20 baris dari posisi
+sekitar baris ke-310.000 (`EXPLAIN (ANALYZE, BUFFERS)`, PostgreSQL 16, lokal).
+
+| Metode                       | Execution Time | Halaman dibaca |
+| ---------------------------- | -------------- | -------------- |
+| `LIMIT 20 OFFSET 310013`     | 288 ms         | 4.894          |
+| `WHERE id < cursor LIMIT 20` | 2,1 ms         | 4              |
+
+`OFFSET` harus membaca dan membuang 310.033 baris dulu. Keyset langsung lompat
+ke posisi cursor lewat indeks, sehingga waktunya tidak bertambah di halaman dalam.
+
+Batasan benchmark: hampir semua baris milik satu akun, jadi planner memakai
+`ledger_entries_pkey` (bukan indeks `(account_id, id DESC)`). Data yang tersebar
+ke banyak akun belum diuji. Angka bergantung pada mesin dan cache (semua `shared hit`).
+
 ## Menjalankan
 
 ```bash
