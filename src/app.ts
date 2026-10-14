@@ -6,6 +6,7 @@ import { getHistory } from "./wallet/history";
 import { pool } from "./db";
 import { isUniqueViolation } from "./db-errors";
 import { requireAuth, type AuthedRequest } from "./auth";
+import { transfer } from "./wallet/transfer";
 
 export const app = express();
 app.use(express.json());
@@ -23,6 +24,11 @@ const registerBody = z.object({
 const historyQuery = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   cursor: z.coerce.number().int().positive().optional(),
+});
+
+const transferBody = z.object({
+  toAccountId: z.number().int().positive(),
+  amount: z.number().int().positive(),
 });
 
 app.get("/health", async (_req, res) => {
@@ -109,5 +115,47 @@ app.get("/history", requireAuth, async (req: AuthedRequest, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Terjadi kesalahan" });
+  }
+});
+
+app.post("/transfer", requireAuth, async (req: AuthedRequest, res) => {
+  const parsed = transferBody.safeParse(req.body);
+  const key = req.header("Idempotency-Key");
+  if (!parsed.success || !key) {
+    return res.status(400).json({ error: "Parameter tidak valid" });
+  }
+
+  try {
+    const acc = await pool.query(
+      "SELECT id FROM accounts WHERE user_id = $1 AND type = 'user' LIMIT 1",
+      [req.userId],
+    );
+    if (acc.rows.length === 0) {
+      return res.status(404).json({ message: "Akun tidak ditemukan" });
+    }
+    const { toAccountId, amount } = parsed.data;
+
+    const result = await transfer(
+      Number(acc.rows[0].id),
+      toAccountId,
+      amount,
+      key,
+      req.userId!,
+    );
+
+    return res.status(200).json(result);
+  } catch (error: unknown) {
+    if (
+      error instanceof Error &&
+      [
+        "Pengirim dan Penerima tidak boleh sama",
+        "Salah satu akun tidak ditemukan",
+        "Idempotency key dipakai untuk request yang berbeda",
+      ].includes(error.message)
+    ) {
+      return res.status(422).json({ error: error.message });
+    }
+    console.error(error);
+    res.status(500).json({ error: "Terjadi kesalahan" });
   }
 });
