@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import { getHistory } from "./wallet/history";
 import { pool } from "./db";
 import { isUniqueViolation } from "./db-errors";
+import { requireAuth, type AuthedRequest } from "./auth";
 
 export const app = express();
 app.use(express.json());
@@ -20,7 +21,6 @@ const registerBody = z.object({
 });
 
 const historyQuery = z.object({
-  accountId: z.coerce.number().int().positive(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   cursor: z.coerce.number().int().positive().optional(),
 });
@@ -88,17 +88,23 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// SEMENTARA: accountId dari query string (akan diganti identitas dari token)
-app.get("/history", async (req, res) => {
+// accountId diambil dari token (userId), bukan dari URL: menutup IDOR
+app.get("/history", requireAuth, async (req: AuthedRequest, res) => {
   const parsed = historyQuery.safeParse(req.query);
   if (!parsed.success) {
     return res.status(400).json({ error: "Parameter tidak valid" });
   }
-
-  const { accountId, limit, cursor } = parsed.data;
+  const { limit, cursor } = parsed.data;
 
   try {
-    const result = await getHistory(accountId, limit, cursor);
+    const acc = await pool.query(
+      "SELECT id FROM accounts WHERE user_id = $1 AND type = 'user' LIMIT 1",
+      [req.userId],
+    );
+    if (acc.rows.length === 0) {
+      return res.status(404).json({ error: "Akun tidak ditemukan" });
+    }
+    const result = await getHistory(Number(acc.rows[0].id), limit, cursor);
     return res.json(result);
   } catch (error) {
     console.error(error);
