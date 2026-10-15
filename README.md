@@ -9,7 +9,8 @@ Ini proyek belajar, **bukan sistem pembayaran sungguhan**.
 - Top-up (simulasi) dan transfer antar akun
 - Ledger double-entry sebagai sumber kebenaran saldo
 - Aman terhadap request bersamaan (concurrency) dan request ulang (idempotency)
-- Belum ada HTTP API atau frontend (lihat "Batasan")
+- HTTP API (Express) dengan register, login (JWT), riwayat, dan transfer
+- Belum ada frontend
 
 ## Teknologi
 
@@ -77,6 +78,22 @@ Batasan benchmark: hampir semua baris milik satu akun, jadi planner memakai
 `ledger_entries_pkey` (bukan indeks `(account_id, id DESC)`). Data yang tersebar
 ke banyak akun belum diuji. Angka bergantung pada mesin dan cache (semua `shared hit`).
 
+## API
+
+| Endpoint                      | Auth   | Fungsi                                                         |
+| ----------------------------- | ------ | -------------------------------------------------------------- |
+| `GET /health`                 | tidak  | Cek server                                                     |
+| `POST /register`              | tidak  | Daftar (password di-hash argon2), otomatis membuat akun        |
+| `POST /login`                 | tidak  | Mengembalikan JWT (berlaku 1 jam)                              |
+| `GET /history?limit=&cursor=` | Bearer | Riwayat akun milik user, keyset pagination                     |
+| `POST /transfer`              | Bearer | Body `{ toAccountId, amount }`, header `Idempotency-Key` wajib |
+
+Prinsip keamanan: identitas (`userId`, akun pengirim) selalu diambil dari token,
+bukan dari input client, sehingga user tidak bisa membaca atau memakai akun orang lain (IDOR ditutup).
+Bukti: test supertest di `test/api.test.ts`.
+
+Menjalankan server: `npx tsx src/server.ts` (butuh `JWT_SECRET` di `.env`).
+
 ## Menjalankan
 
 ```bash
@@ -98,9 +115,11 @@ Isi `TEST_DATABASE_URL` di `.env` agar mengarah ke `wallet_test`.
 
 ## Batasan yang diketahui
 
-- Belum ada HTTP API, autentikasi, atau RBAC
-- `topUp` belum idempotent dan belum punya test otomatis
-- Migration dijalankan manual (belum ada migration runner)
+- Belum ada endpoint top-up; `topUp` baru berupa fungsi (teruji lewat skrip)
+- Register membuat user dan akun dengan dua query terpisah (belum satu transaksi)
+- Error domain di `/transfer` dipetakan lewat pencocokan teks pesan (rapuh), belum kelas error
+- Celah timing kecil di login saat email tidak terdaftar
+- Token berlaku 1 jam, belum ada refresh token, rate limiting, atau audit log
+- Migration masih manual (belum ada migration runner)
 - Belum ada test deadlock dua arah
-- Belum ada riwayat transaksi dengan pagination
 - Satu user DB dengan hak penuh (belum least privilege)
