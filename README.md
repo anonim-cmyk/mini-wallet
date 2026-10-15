@@ -1,5 +1,7 @@
 # mini-wallet
 
+![test](https://github.com/ilhamsyahdan/mini-wallet/actions/workflows/test.yml/badge.svg)
+
 Mini e-wallet untuk mempelajari **konsistensi data** pada operasi uang:
 transaksi database, locking, ledger double-entry, dan idempotency.
 Ini proyek belajar, **bukan sistem pembayaran sungguhan**.
