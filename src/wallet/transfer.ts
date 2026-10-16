@@ -1,5 +1,11 @@
 import { createHash } from "node:crypto";
 import { pool } from "../db";
+import {
+  AccountNotFoundError,
+  IdempotencyConflictError,
+  InsufficientBalanceError,
+  InvalidTransferError,
+} from "./errors";
 
 export async function transfer(
   fromAccountId: number,
@@ -9,11 +15,13 @@ export async function transfer(
   createdBy: string,
 ) {
   if (!Number.isInteger(amount) || amount <= 0) {
-    throw new Error("Amount harus berupa bilangan bulat dan lebih dari 0");
+    throw new InvalidTransferError(
+      "Amount harus berupa bilangan bulat dan lebih dari 0",
+    );
   }
 
   if (fromAccountId === toAccountId) {
-    throw new Error("Pengirim dan Penerima tidak boleh sama");
+    throw new InvalidTransferError("Pengirim dan Penerima tidak boleh sama");
   }
 
   const requestHash = createHash("sha256")
@@ -41,7 +49,7 @@ export async function transfer(
       );
 
       if (old.rows[0].request_hash !== requestHash) {
-        throw new Error("Idempotency key dipakai untuk request yang berbeda");
+        throw new IdempotencyConflictError();
       }
 
       await client.query("COMMIT");
@@ -59,22 +67,22 @@ export async function transfer(
     );
 
     if (accountRes.rows.length < 2) {
-      throw new Error("Salah satu akun tidak ditemukan");
+      throw new AccountNotFoundError();
     }
 
     if (accountRes.rows.some((r) => r.type !== "user")) {
-      throw new Error("Transfer hanya antar akun user");
+      throw new InvalidTransferError("Transfer hanya antar akun user");
     }
 
     const sender = accountRes.rows.find((r) => Number(r.id) === fromAccountId);
     const receiver = accountRes.rows.find((r) => Number(r.id) === toAccountId);
 
     if (!sender || !receiver) {
-      throw new Error("Salah satu akun tidak ditemukan");
+      throw new AccountNotFoundError();
     }
 
     if (Number(sender.balance) < amount) {
-      throw new Error("Saldo tidak cukup");
+      throw new InsufficientBalanceError();
     }
 
     // 3. Catat transaksi dan ledger
