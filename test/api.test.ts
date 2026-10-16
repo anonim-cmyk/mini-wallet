@@ -112,4 +112,45 @@ describe("transfer", () => {
     ]);
     expect(Number(bal.rows[0].balance)).toBe(900);
   });
+
+  it("Saldo tidak cukup -> 422", async () => {
+    const tokenA = await registerAndLogin("a@x.com");
+    await registerAndLogin("b@x.com");
+    const b = await getIds("b@x.com");
+
+    const res = await request(app)
+      .post("/transfer")
+      .set("Authorization", `Bearer ${tokenA}`)
+      .set("Idempotency-Key", "k1")
+      .send({ toAccountId: b.accountId, amount: 100 });
+    expect(res.status).toBe(422);
+    expect(res.body.error).toBe("Saldo tidak cukup");
+  });
+
+  it("key sama jumlah beda -> 422", async () => {
+    const tokenA = await registerAndLogin("a@x.com");
+    await registerAndLogin("b@x.com");
+
+    const a = await getIds("a@x.com");
+    const b = await getIds("b@x.com");
+
+    await topUp(a.accountId, 1000, a.userId);
+
+    const first = await request(app)
+      .post("/transfer")
+      .set("Authorization", `Bearer ${tokenA}`)
+      .set("Idempotency-Key", "k1")
+      .send({ toAccountId: b.accountId, amount: 100 });
+    expect(first.status).toBe(200);
+
+    const second = await request(app)
+      .post("/transfer")
+      .set("Authorization", `Bearer ${tokenA}`)
+      .set("Idempotency-Key", "k1")
+      .send({ toAccountId: b.accountId, amount: 500 });
+    expect(second.status).toBe(422);
+    expect(second.body.error).toBe(
+      "Idempotency key dipakai untuk request yang berbeda",
+    );
+  });
 });

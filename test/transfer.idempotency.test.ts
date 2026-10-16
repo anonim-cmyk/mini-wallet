@@ -103,7 +103,6 @@ describe("idempotency", () => {
       "SELECT id, balance FROM accounts WHERE id IN ($1, $2)",
       [sender.accountId, receiver.accountId],
     );
-    console.log(balance);
 
     const bal = Object.fromEntries(
       balance.rows.map((r) => [r.id, Number(r.balance)]),
