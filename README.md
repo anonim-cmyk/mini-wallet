@@ -118,7 +118,6 @@ Isi `TEST_DATABASE_URL` di `.env` agar mengarah ke `wallet_test`.
 ## Batasan yang diketahui
 
 - Belum ada endpoint top-up; `topUp` baru berupa fungsi (teruji lewat skrip)
-- Register membuat user dan akun dengan dua query terpisah (belum satu transaksi)
 - Error domain di `/transfer` dipetakan lewat pencocokan teks pesan (rapuh), belum kelas error
 - Celah timing kecil di login saat email tidak terdaftar
 - Token berlaku 1 jam, belum ada refresh token, rate limiting, atau audit log

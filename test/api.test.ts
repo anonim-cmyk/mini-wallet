@@ -63,6 +63,21 @@ describe("Auth", () => {
       .send({ email: "a@x.com", password: "rahasia123" });
     expect(second.status).toBe(409);
   });
+
+  it("register gagal di tengah: tidak ada user tertinggal", async () => {
+    // blokir insert akun sementara
+    await pool.query(
+      `ALTER TABLE accounts ADD CONSTRAINT tmp_block CHECK (false) NOT VALID`,
+    );
+    const res = await request(app)
+      .post("/register")
+      .send({ email: "z@x.com", password: "rahasia123" });
+    expect(res.status).toBe(500);
+    await pool.query(`ALTER TABLE accounts DROP CONSTRAINT tmp_block`);
+
+    const u = await pool.query("SELECT 1 FROM users WHERE email = 'z@x.com'");
+    expect(u.rows.length).toBe(0); // user ikut dibatalkan
+  });
 });
 
 describe("API dasar", () => {

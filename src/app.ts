@@ -43,23 +43,37 @@ app.post("/register", async (req, res) => {
   }
 
   const { email, password } = parsed.data;
+  const hash = await argon2.hash(password);
+
+  const client = await pool.connect();
 
   try {
-    const hash = await argon2.hash(password);
-    const u = await pool.query(
+    await client.query("BEGIN");
+
+    const u = await client.query(
       "INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id, email",
       [email, hash],
     );
-    await pool.query("INSERT INTO accounts (user_id) VALUES ($1)", [
-      u.rows[0].id,
-    ]);
+
+    const userId = u.rows[0].id;
+
+    await client.query(
+      "INSERT INTO accounts (user_id, type) VALUES ($1, 'user')",
+      [userId],
+    );
+
+    await client.query("COMMIT");
+
     return res.status(201).json(u.rows[0]);
   } catch (error) {
+    await client.query("ROLLBACK");
     if (isUniqueViolation(error, "users_email_key")) {
       return res.status(409).json({ error: "Email sudah terdaftar" });
     }
     console.error(error);
     return res.status(500).json({ error: "Terjadi kesalahan" });
+  } finally {
+    client.release();
   }
 });
 
