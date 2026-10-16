@@ -7,7 +7,7 @@ import { pool } from "./db";
 import { isUniqueViolation } from "./db-errors";
 import { requireAuth, type AuthedRequest } from "./auth";
 import { transfer } from "./wallet/transfer";
-import { DomainError, InsufficientBalanceError } from "./wallet/errors";
+import { DomainError } from "./wallet/errors";
 
 export const app = express();
 app.use(express.json());
@@ -146,9 +146,6 @@ app.post("/transfer", requireAuth, async (req: AuthedRequest, res) => {
 
     return res.status(200).json(result);
   } catch (error: unknown) {
-    if (error instanceof InsufficientBalanceError) {
-      return res.status(422).json({ error: error.message });
-    }
     if (error instanceof DomainError) {
       return res.status(422).json({ error: error.message });
     }
